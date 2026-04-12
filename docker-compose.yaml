@@ -61,6 +61,7 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -283,6 +284,23 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+  project-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: mediapulse
+      POSTGRES_PASSWORD: mediapulse
+      POSTGRES_DB: mediapulse
+    volumes:
+      - project-db-volume:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mediapulse"]
+      interval: 5s
+      retries: 5
+    restart: always
 
 volumes:
   postgres-db-volume:
+  project-db-volume:
