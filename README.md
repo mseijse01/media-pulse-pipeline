@@ -116,7 +116,3 @@ brand_weekly_metrics      -- fact table (grows weekly)
 | Phase 3 | Improvements — informed by Phase 2 (dbt, visualisation) | Planned |
 
 ---
-
-## Background
-
-This project was built as preparation for a role as Audience & Consumer Insights Specialist at Nielsen Research Media. The goal was to demonstrate the ability to build and maintain data pipelines — not just analyse data, but move it reliably, on a schedule, with quality checks. The tech stack (Airflow, Python, PostgreSQL, Docker) mirrors Nielsen's toolchain directly.
