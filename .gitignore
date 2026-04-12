@@ -1,0 +1,15 @@
+# environment
+.env
+
+# airflow logs (too noisy for version control)
+logs/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# os
+.DS_Store
