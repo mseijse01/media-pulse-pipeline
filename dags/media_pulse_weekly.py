@@ -15,6 +15,13 @@ default_args = {
 }
 
 BRANDS = ["Nike", "Coca-Cola", "Netflix", "Apple", "Samsung"]
+BRAND_TICKERS = {
+    "Nike": "NKE",
+    "Coca-Cola": "KO",
+    "Netflix": "NFLX",
+    "Apple": "AAPL",
+    "Samsung": "005930.KS",
+}
 DATA_DIR = "/opt/airflow/data"
 
 
@@ -70,6 +77,60 @@ def extract_wikipedia(**context):
     return output_path
 
 
+def extract_market(**context):
+    import yfinance as yf
+
+    execution_date = context["data_interval_start"]
+    week_start = get_week_start(execution_date)
+    week_end = (datetime.strptime(week_start, "%Y-%m-%d") + timedelta(days=6)).strftime(
+        "%Y-%m-%d"
+    )
+
+    results = {}
+    for brand, ticker in BRAND_TICKERS.items():
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(start=week_start, end=week_end)
+
+            if not hist.empty:
+                close_price = round(float(hist["Close"].iloc[-1]), 4)
+                results[brand] = {
+                    "brand": brand,
+                    "ticker": ticker,
+                    "week_start": week_start,
+                    "market_close": close_price,
+                    "data_available": True,
+                }
+                print(f"Market — {brand} ({ticker}): close {close_price}")
+            else:
+                results[brand] = {
+                    "brand": brand,
+                    "ticker": ticker,
+                    "week_start": week_start,
+                    "market_close": None,
+                    "data_available": False,
+                }
+                print(f"Market — {brand} ({ticker}): no data for week")
+
+        except Exception as e:
+            results[brand] = {
+                "brand": brand,
+                "ticker": ticker,
+                "week_start": week_start,
+                "market_close": None,
+                "data_available": False,
+            }
+            print(f"Market — {brand} ({ticker}): ERROR — {e}")
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    output_path = os.path.join(DATA_DIR, f"market_{week_start}.json")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"Saved market data to {output_path}")
+    return output_path
+
+
 with DAG(
     dag_id="media_pulse_weekly",
     description="Weekly brand attention pipeline — Wikipedia, Trends, Market",
@@ -90,7 +151,10 @@ with DAG(
     )
 
     extract_trends = EmptyOperator(task_id="extract_trends")
-    extract_market = EmptyOperator(task_id="extract_market")
+    extract_market = PythonOperator(
+        task_id="extract_market",
+        python_callable=extract_market,
+    )
 
     normalize_and_join = EmptyOperator(task_id="normalize_and_join")
     quality_check = EmptyOperator(task_id="quality_check")
