@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 import json
 import os
-import wikipediaapi
 
 from airflow import DAG
 from airflow.operators.empty import EmptyOperator
@@ -22,6 +21,13 @@ BRAND_TICKERS = {
     "Apple": "AAPL",
     "Samsung": "005930.KS",
 }
+BRAND_WIKI_TITLES = {
+    "Nike": "Nike,_Inc.",
+    "Coca-Cola": "Coca-Cola",
+    "Netflix": "Netflix",
+    "Apple": "Apple_Inc.",
+    "Samsung": "Samsung",
+}
 DATA_DIR = "/opt/airflow/data"
 
 
@@ -37,40 +43,82 @@ def get_week_start(execution_date) -> str:
 
 
 def extract_wikipedia(**context):
+    import requests
+    from datetime import timedelta
+
     execution_date = context["data_interval_start"]
     week_start = get_week_start(execution_date)
 
-    wiki = wikipediaapi.Wikipedia(
-        language="en", user_agent="media-pulse-pipeline/1.0 (portfolio project)"
-    )
+    start_date = datetime.strptime(week_start, "%Y-%m-%d")
+    end_date = start_date + timedelta(days=6)
+    start_str = start_date.strftime("%Y%m%d")
+    end_str = end_date.strftime("%Y%m%d")
+
+    headers = {"User-Agent": "media-pulse-pipeline/1.0 (portfolio project)"}
 
     results = {}
     for brand in BRANDS:
-        page = wiki.page(brand)
-        if page.exists():
+        wiki_title = BRAND_WIKI_TITLES.get(brand, brand)
+        url = (
+            f"https://wikimedia.org/api/rest_v1/metrics/pageviews/"
+            f"per-article/en.wikipedia/all-access/all-agents/"
+            f"{wiki_title}/daily/{start_str}/{end_str}"
+        )
+
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                total_views = sum(item["views"] for item in data.get("items", []))
+                results[brand] = {
+                    "brand": brand,
+                    "wiki_title": wiki_title,
+                    "week_start": week_start,
+                    "wikipedia_views": total_views,
+                    "days_available": len(data.get("items", [])),
+                    "data_available": True,
+                }
+                print(
+                    f"Wikipedia — {brand}: {total_views:,} views ({len(data.get('items', []))} days)"
+                )
+
+            elif response.status_code == 404:
+                results[brand] = {
+                    "brand": brand,
+                    "wiki_title": wiki_title,
+                    "week_start": week_start,
+                    "wikipedia_views": None,
+                    "days_available": 0,
+                    "data_available": False,
+                }
+                print(f"Wikipedia — {brand}: 404 — article '{wiki_title}' not found")
+
+            else:
+                results[brand] = {
+                    "brand": brand,
+                    "wiki_title": wiki_title,
+                    "week_start": week_start,
+                    "wikipedia_views": None,
+                    "days_available": 0,
+                    "data_available": False,
+                }
+                print(f"Wikipedia — {brand}: unexpected status {response.status_code}")
+
+        except Exception as e:
             results[brand] = {
                 "brand": brand,
+                "wiki_title": wiki_title,
                 "week_start": week_start,
-                "page_exists": True,
-                "summary_length": len(page.summary),
-                "title": page.title,
+                "wikipedia_views": None,
+                "days_available": 0,
+                "data_available": False,
             }
-            print(
-                f"Wikipedia — {brand}: page found, summary length {len(page.summary)}"
-            )
-        else:
-            results[brand] = {
-                "brand": brand,
-                "week_start": week_start,
-                "page_exists": False,
-                "summary_length": 0,
-                "title": None,
-            }
-            print(f"Wikipedia — {brand}: page NOT found")
+            print(f"Wikipedia — {brand}: ERROR — {e}")
 
     os.makedirs(DATA_DIR, exist_ok=True)
     output_path = os.path.join(DATA_DIR, f"wikipedia_{week_start}.json")
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
 
     print(f"Saved Wikipedia data to {output_path}")
@@ -219,7 +267,7 @@ def normalize_and_join(**context):
             {
                 "brand": brand,
                 "week_start": week_start,
-                "wikipedia_views": wiki.get("summary_length"),
+                "wikipedia_views": wiki.get("wikipedia_views"),
                 "trends_score": trends.get("trends_score"),
                 "market_close": market.get("market_close"),
             }
