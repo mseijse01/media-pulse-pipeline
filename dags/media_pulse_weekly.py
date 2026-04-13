@@ -215,6 +215,7 @@ def extract_market(**context):
 
 def extract_trends(**context):
     import time
+    import os
     from pytrends.request import TrendReq
     from pytrends.exceptions import ResponseError
 
@@ -224,6 +225,27 @@ def extract_trends(**context):
         "%Y-%m-%d"
     )
     timeframe = f"{week_start} {week_end}"
+
+    output_path = os.path.join(DATA_DIR, f"trends_{week_start}.json")
+
+    if os.path.exists(output_path):
+        file_age_hours = (
+            datetime.now().timestamp() - os.path.getmtime(output_path)
+        ) / 3600
+        if file_age_hours < 6:
+            print(
+                f"Using cached trends data from {output_path} "
+                f"(age: {file_age_hours:.1f}h)"
+            )
+            with open(output_path, encoding="utf-8") as f:
+                cached = json.load(f)
+            available = sum(1 for v in cached.values() if v.get("data_available"))
+            print(f"Cache has {available}/{len(BRANDS)} brands available")
+            return output_path
+        else:
+            print(
+                f"Cached trends file is {file_age_hours:.1f}h old — fetching fresh data"
+            )
 
     pytrends = TrendReq(hl="en-US", tz=0, timeout=(10, 25))
 
@@ -262,7 +284,6 @@ def extract_trends(**context):
             print(f"Trends — {brand}: failed — {e}")
 
     os.makedirs(DATA_DIR, exist_ok=True)
-    output_path = os.path.join(DATA_DIR, f"trends_{week_start}.json")
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
 
