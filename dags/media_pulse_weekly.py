@@ -134,6 +134,20 @@ def extract_market(**context):
         "%Y-%m-%d"
     )
 
+    usd_krw_rate = None
+    try:
+        fx = yf.Ticker("KRW=X")
+        fx_hist = fx.history(start=week_start, end=week_end)
+        if not fx_hist.empty:
+            usd_krw_rate = round(float(fx_hist["Close"].iloc[-1]), 4)
+            print(f"USD/KRW rate for week: {usd_krw_rate}")
+        else:
+            print(
+                "WARNING: Could not fetch USD/KRW rate — Samsung will have null USD value"
+            )
+    except Exception as e:
+        print(f"WARNING: USD/KRW fetch failed — {e}")
+
     results = {}
     for brand, ticker in BRAND_TICKERS.items():
         try:
@@ -142,20 +156,38 @@ def extract_market(**context):
 
             if not hist.empty:
                 close_price = round(float(hist["Close"].iloc[-1]), 4)
+
+                if ticker.endswith(".KS"):
+                    currency = "KRW"
+                    close_usd = (
+                        round(close_price / usd_krw_rate, 4) if usd_krw_rate else None
+                    )
+                else:
+                    currency = "USD"
+                    close_usd = close_price
+
                 results[brand] = {
                     "brand": brand,
                     "ticker": ticker,
                     "week_start": week_start,
                     "market_close": close_price,
+                    "market_close_usd": close_usd,
+                    "market_currency": currency,
                     "data_available": True,
                 }
-                print(f"Market — {brand} ({ticker}): close {close_price}")
+                print(
+                    f"Market — {brand} ({ticker}): "
+                    f"{close_price} {currency}"
+                    + (f" = ${close_usd} USD" if currency != "USD" else "")
+                )
             else:
                 results[brand] = {
                     "brand": brand,
                     "ticker": ticker,
                     "week_start": week_start,
                     "market_close": None,
+                    "market_close_usd": None,
+                    "market_currency": currency if ticker.endswith(".KS") else "USD",
                     "data_available": False,
                 }
                 print(f"Market — {brand} ({ticker}): no data for week")
@@ -166,6 +198,8 @@ def extract_market(**context):
                 "ticker": ticker,
                 "week_start": week_start,
                 "market_close": None,
+                "market_close_usd": None,
+                "market_currency": "KRW" if ticker.endswith(".KS") else "USD",
                 "data_available": False,
             }
             print(f"Market — {brand} ({ticker}): ERROR — {e}")
@@ -270,6 +304,8 @@ def normalize_and_join(**context):
                 "wikipedia_views": wiki.get("wikipedia_views"),
                 "trends_score": trends.get("trends_score"),
                 "market_close": market.get("market_close"),
+                "market_close_usd": market.get("market_close_usd"),
+                "market_currency": market.get("market_currency", "USD"),
             }
         )
 
@@ -375,18 +411,22 @@ def load_to_postgres(**context):
                 record.get("wikipedia_views"),
                 record.get("trends_score"),
                 record.get("market_close"),
+                record.get("market_close_usd"),
+                record.get("market_currency", "USD"),
             )
         )
 
     upsert_sql = """
         INSERT INTO brand_weekly_metrics
-            (brand_id, week_start, wikipedia_views, trends_score, market_close)
+            (brand_id, week_start, wikipedia_views, trends_score, market_close, market_close_usd, market_currency)
         VALUES %s
         ON CONFLICT (brand_id, week_start)
         DO UPDATE SET
             wikipedia_views = EXCLUDED.wikipedia_views,
             trends_score    = EXCLUDED.trends_score,
             market_close    = EXCLUDED.market_close,
+            market_close_usd = EXCLUDED.market_close_usd,
+            market_currency = EXCLUDED.market_currency,
             loaded_at       = NOW()
     """
 
