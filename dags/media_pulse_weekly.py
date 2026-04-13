@@ -131,6 +131,63 @@ def extract_market(**context):
     return output_path
 
 
+def extract_trends(**context):
+    import time
+    from pytrends.request import TrendReq
+    from pytrends.exceptions import ResponseError
+
+    execution_date = context["data_interval_start"]
+    week_start = get_week_start(execution_date)
+    week_end = (datetime.strptime(week_start, "%Y-%m-%d") + timedelta(days=6)).strftime(
+        "%Y-%m-%d"
+    )
+    timeframe = f"{week_start} {week_end}"
+
+    pytrends = TrendReq(hl="en-US", tz=0, timeout=(10, 25))
+
+    results = {}
+    for brand in BRANDS:
+        try:
+            time.sleep(5)
+            pytrends.build_payload([brand], timeframe=timeframe, geo="")
+            df = pytrends.interest_over_time()
+
+            if not df.empty and brand in df.columns:
+                avg_score = round(float(df[brand].mean()), 2)
+                results[brand] = {
+                    "brand": brand,
+                    "week_start": week_start,
+                    "trends_score": avg_score,
+                    "data_available": True,
+                }
+                print(f"Trends — {brand}: score {avg_score}")
+            else:
+                results[brand] = {
+                    "brand": brand,
+                    "week_start": week_start,
+                    "trends_score": None,
+                    "data_available": False,
+                }
+                print(f"Trends — {brand}: empty response")
+
+        except Exception as e:
+            results[brand] = {
+                "brand": brand,
+                "week_start": week_start,
+                "trends_score": None,
+                "data_available": False,
+            }
+            print(f"Trends — {brand}: failed — {e}")
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    output_path = os.path.join(DATA_DIR, f"trends_{week_start}.json")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+
+    print(f"Saved trends data to {output_path}")
+    return output_path
+
+
 with DAG(
     dag_id="media_pulse_weekly",
     description="Weekly brand attention pipeline — Wikipedia, Trends, Market",
@@ -150,7 +207,11 @@ with DAG(
         python_callable=extract_wikipedia,
     )
 
-    extract_trends = EmptyOperator(task_id="extract_trends")
+    extract_trends = PythonOperator(
+        task_id="extract_trends",
+        python_callable=extract_trends,
+    )
+
     extract_market = PythonOperator(
         task_id="extract_market",
         python_callable=extract_market,
