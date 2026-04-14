@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: brand_weekly_enriched
+    description: "Weekly brand metrics with week-over-week change and rolling averages"
+    columns:
+      - name: brand_name
+        tests:
+          - not_null
+      - name: week_start
+        tests:
+          - not_null
+      - name: wikipedia_wow_pct
+        description: "Week-over-week % change in Wikipedia views"
+      - name: wikipedia_4w_avg
+        description: "4-week rolling average of Wikipedia views"
+      - name: market_wow_pct
+        description: "Week-over-week % change in market close price USD"
