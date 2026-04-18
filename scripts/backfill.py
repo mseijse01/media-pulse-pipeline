@@ -61,7 +61,7 @@ def get_monday_dates(num_weeks: int) -> list[str]:
     today = datetime.now()
     current_monday = today - timedelta(days=today.weekday())
     mondays = []
-    for i in range(1, num_weeks + 1):
+    for i in range(0, num_weeks):
         monday = current_monday - timedelta(weeks=i)
         mondays.append(monday.strftime("%Y-%m-%d"))
     return mondays
