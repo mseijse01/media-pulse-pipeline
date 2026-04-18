@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: brand_weekly_enriched
+    description: >
+      Mart model that enriches the staging layer with week-over-week percentage
+      changes and a 4-week rolling average for Wikipedia views and market close.
+      Materialised as a table. This is the primary analytical layer — the
+      Streamlit dashboard and Jupyter notebook both query this model directly.
+
+      One row per brand per week. First week per brand will have null WoW columns
+      (no prior week to compare against) — this is expected and not a data
+      quality issue.
+    columns:
+      - name: brand_name
+        description: Human-readable brand name.
+        tests:
+          - not_null
+
+      - name: week_start
+        description: Monday date for the week this row represents.
+        tests:
+          - not_null
+
+      - name: wikipedia_views
+        description: Total Wikipedia pageviews for the week. See staging model for sourcing details.
+
+      - name: trends_score
+        description: Google Trends interest score. Null for most historical rows — see staging model.
+
+      - name: market_close_usd
+        description: >
+          Weekly closing price in USD. Samsung is converted from KRW using the
+          spot rate for that week. Always use this column for cross-brand
+          market comparisons — never market_close directly.
+
+      - name: market_currency
+        description: Native currency of the raw market_close value (USD or KRW).
+
+      - name: prev_wikipedia_views
+        description: >
+          Wikipedia views from the previous week (lag 1), used to compute
+          wikipedia_wow_pct. Null for the first week per brand.
+
+      - name: wikipedia_wow_pct
+        description: >
+          Week-over-week percentage change in Wikipedia views.
+          Computed as: 100 * (current - previous) / previous.
+          Null for the first week per brand.
+
+      - name: wikipedia_4w_avg
+        description: >
+          4-week rolling average of Wikipedia views (current week + 3 preceding weeks).
+          Smooths out single-week spikes. Useful for identifying sustained attention
+          trends versus one-off events (e.g. a product launch vs. ongoing brand salience).
+
+      - name: prev_market_close_usd
+        description: >
+          Market close (USD) from the previous week. Null for the first week per brand.
+
+      - name: market_wow_pct
+        description: >
+          Week-over-week percentage change in market close price (USD).
+          Null for the first week per brand.
+
+      - name: loaded_at
+        description: Timestamp when the underlying raw row was last upserted.
+        tests:
+          - not_null

@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: stg_brand_weekly_metrics
+    description: >
+      Staging model that joins the raw fact table (brand_weekly_metrics) with the
+      brands dimension table. Produces one row per brand per week with all raw
+      signal columns. No transformations are applied here — this model exists
+      purely to centralise the join and expose clean column names to downstream
+      marts.
+    columns:
+      - name: id
+        description: Surrogate key from brand_weekly_metrics.
+        tests:
+          - not_null
+
+      - name: brand_name
+        description: Human-readable brand name (Nike, Coca-Cola, Netflix, Apple, Samsung).
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["Nike", "Coca-Cola", "Netflix", "Apple", "Samsung"]
+
+      - name: week_start
+        description: Monday date for the week this row represents (YYYY-MM-DD).
+        tests:
+          - not_null
+
+      - name: wikipedia_views
+        description: >
+          Total Wikipedia pageviews for the brand's primary article across all
+          days in the week. Sourced from the Wikimedia REST API. Null if the
+          API returned a non-200 response for that week.
+
+      - name: trends_score
+        description: >
+          Average Google Trends interest score for the brand over the week
+          (0–100 scale, relative to peak search interest). Null for most
+          historical rows due to pytrends rate limiting during backfill —
+          only populated by the weekly pipeline going forward.
+
+      - name: market_close
+        description: >
+          Weekly closing price in the stock's native currency. USD for Nike,
+          Coca-Cola, Netflix, Apple. KRW for Samsung (005930.KS).
+          Use market_close_usd for cross-brand comparisons.
+
+      - name: market_close_usd
+        description: >
+          Weekly closing price converted to USD. For USD-denominated stocks
+          this is identical to market_close. For Samsung (KRW), this is
+          market_close divided by the USD/KRW spot rate for that week.
+
+      - name: market_currency
+        description: Native currency of market_close. Either USD or KRW.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["USD", "KRW"]
+
+      - name: loaded_at
+        description: Timestamp when this row was last upserted by the pipeline.
+        tests:
+          - not_null
