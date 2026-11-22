@@ -1,8 +1,10 @@
 # Media Pulse Pipeline
 
+[![CI](https://github.com/mseijse01/media-pulse-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/mseijse01/media-pulse-pipeline/actions/workflows/ci.yml)
+
 A weekly data pipeline that tracks brand attention signals for five global brands across three public data sources, normalises them into PostgreSQL, transforms them with dbt, and surfaces insights via a Streamlit dashboard.
 
-Built as a portfolio project to demonstrate data engineering fundamentals ahead of a role in media analytics. The pipeline architecture mirrors real-world media measurement workflows: multi-source ingestion, scheduled orchestration, idempotent loading, a transformation layer with tests, and an analytical visualisation layer.
+A personal portfolio project in media analytics, built independently on public data only. It contains no proprietary or employer data. The pipeline architecture mirrors real-world media measurement workflows: multi-source ingestion, scheduled orchestration, idempotent loading, a transformation layer with tests, and an analytical visualisation layer.
 
 ---
 
@@ -45,7 +47,8 @@ This is documented honestly. The pipeline architecture is identical to what you 
 | Orchestration | Apache Airflow 2.9.2 | DAG scheduling, task dependencies, retry logic |
 | Infrastructure | Docker + Docker Compose | 7-container local environment |
 | Storage | PostgreSQL 15 (port 5433) | Project database |
-| Transformation | dbt 1.8.0 | SQL models, tests, documentation |
+| Transformation | dbt Core 1.11 (Postgres adapter) | SQL models, tests, documentation |
+| CI | GitHub Actions | `dbt build` against Postgres on every PR |
 | Analysis | Jupyter + pandas + statsmodels | Lead-lag correlation, OLS regression |
 | Visualisation | Streamlit + Plotly | Interactive brand attention dashboard |
 | Language | Python 3.12 | Extraction and transformation logic |
@@ -56,6 +59,8 @@ This is documented honestly. The pipeline architecture is identical to what you 
 
 ```
 media-pulse-pipeline/
+├── .github/workflows/ci.yml       # CI: dbt build + tests against Postgres
+├── ci/                            # CI-only dbt profile and synthetic fixture rows
 ├── dags/
 │   └── media_pulse_weekly.py      # Main DAG — extraction, normalisation, load
 ├── media_pulse/                   # dbt project
@@ -229,3 +234,9 @@ analytics.brand_weekly_enriched      -- table: + WoW%, 4w rolling avg
 | Phase 5 | Analysis — lead-lag correlation, OLS regression, key findings | ✅ Complete |
 | Phase 6 | Visualisation — Streamlit dashboard | ✅ Complete |
 | Phase 7 | Deployment — Supabase + Streamlit Cloud | Planned |
+
+---
+
+## License
+
+[MIT](LICENSE)
