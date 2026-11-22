@@ -9,8 +9,12 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+.venv-*/
 venv/
-echo ".python-version" >> .gitignore
+.python-version
 
 # os
 .DS_Store
+
+# jupyter
+.ipynb_checkpoints/
