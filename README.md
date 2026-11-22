@@ -234,3 +234,9 @@ analytics.brand_weekly_enriched      -- table: + WoW%, 4w rolling avg
 | Phase 5 | Analysis — lead-lag correlation, OLS regression, key findings | ✅ Complete |
 | Phase 6 | Visualisation — Streamlit dashboard | ✅ Complete |
 | Phase 7 | Deployment — Supabase + Streamlit Cloud | Planned |
+
+---
+
+## License
+
+[MIT](LICENSE)
