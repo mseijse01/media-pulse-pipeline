@@ -1,0 +1,14 @@
+# dbt profile used only by CI (.github/workflows/ci.yml).
+# Local development uses ~/.dbt/profiles.yml instead.
+media_pulse:
+  target: ci
+  outputs:
+    ci:
+      type: postgres
+      host: "{{ env_var('PGHOST', 'localhost') }}"
+      port: "{{ env_var('PGPORT', '5432') | as_number }}"
+      user: "{{ env_var('PGUSER', 'mediapulse') }}"
+      password: "{{ env_var('PGPASSWORD', '') }}"
+      dbname: "{{ env_var('PGDATABASE', 'mediapulse') }}"
+      schema: analytics
+      threads: 2
